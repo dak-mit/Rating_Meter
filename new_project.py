@@ -250,7 +250,7 @@ def before_request():
         except Exception as e:
             logger.error(f"Error initializing database: {str(e)}")
 
-# Modify initialize_database function
+# Database initialization function
 def initialize_database():
     try:
         db.create_all()
@@ -280,16 +280,6 @@ def initialize_database():
                 logger.error(f"Error committing demo data: {str(e)}")
     except Exception as e:
         logger.error(f"Error in initialize_database: {str(e)}")
-
-# Remove database initialization from index route
-@app.route('/')
-def index():
-    logger.debug('Accessing index page')
-    try:
-        return render_template('index.html')
-    except Exception as e:
-        logger.error(f'Error in index route: {str(e)}')
-        return f"Error in application: {str(e)}", 500
 
 if __name__ == '__main__':
     with app.app_context():
