@@ -87,7 +87,155 @@ def login():
         flash('Invalid username or password')
     return render_template('login.html')
 
-# ... (copy ALL other routes from new_project.py) ...
+# Add ALL routes after the login route
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        is_playmaker = request.form.get('is_playmaker') == 'on'
+        playmaker_password = request.form.get('playmaker_password')
+        
+        if User.query.filter_by(username=username).first():
+            flash('Username already exists')
+            return redirect(url_for('register'))
+        
+        # Check playmaker password if trying to register as playmaker
+        if is_playmaker and playmaker_password != PLAYMAKER_PASSWORD:
+            flash('Invalid playmaker password')
+            return redirect(url_for('register'))
+        
+        user = User(
+            username=username,
+            password_hash=generate_password_hash(password),
+            is_playmaker=is_playmaker
+        )
+        db.session.add(user)
+        db.session.commit()
+        
+        flash('Registration successful')
+        return redirect(url_for('login'))
+    return render_template('register.html')
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    if current_user.is_playmaker:
+        samples = Sample.query.all()
+        ratings = Rating.query.all()
+        users = User.query.filter_by(is_playmaker=False).all()
+        return render_template('playmaker_dashboard.html', samples=samples, ratings=ratings, users=users)
+    else:
+        samples = Sample.query.all()
+        user_ratings = Rating.query.filter_by(user_id=current_user.id).all()
+        rated_sample_ids = [r.sample_id for r in user_ratings]
+        unrated_samples = [s for s in samples if s.id not in rated_sample_ids]
+        return render_template('player_dashboard.html', samples=unrated_samples, ratings=user_ratings)
+
+@app.route('/add_sample', methods=['GET', 'POST'])
+@login_required
+def add_sample():
+    if not current_user.is_playmaker:
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        name = request.form.get('name')
+        description = request.form.get('description')
+        playmaker_rating = float(request.form.get('rating'))
+        
+        sample = Sample(
+            name=name,
+            description=description,
+            playmaker_rating=playmaker_rating
+        )
+        db.session.add(sample)
+        db.session.commit()
+        
+        flash('Sample added successfully')
+        return redirect(url_for('dashboard'))
+    return render_template('add_sample.html')
+
+@app.route('/rate_sample/<int:sample_id>', methods=['POST'])
+@login_required
+def rate_sample(sample_id):
+    if current_user.is_playmaker:
+        return redirect(url_for('dashboard'))
+    
+    sample = Sample.query.get_or_404(sample_id)
+    rating_value = float(request.form.get('rating'))
+    
+    # Calculate points (maximum 10 points for exact match)
+    difference = abs(sample.playmaker_rating - rating_value)
+    points = max(0, 10 - int(difference * 2))
+    
+    rating = Rating(
+        user_id=current_user.id,
+        sample_id=sample_id,
+        rating_value=rating_value,
+        points_earned=points
+    )
+    
+    current_user.points += points
+    db.session.add(rating)
+    db.session.commit()
+    
+    flash(f'Rating submitted! You earned {points} points!')
+    return redirect(url_for('dashboard'))
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
+
+@app.route('/confirm_delete_user/<username>')
+@login_required
+def confirm_delete_user(username):
+    if not current_user.is_playmaker:
+        flash('Only playmakers can delete users')
+        return redirect(url_for('dashboard'))
+        
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        flash('User not found')
+        return redirect(url_for('dashboard'))
+        
+    return render_template('confirm_delete.html', username=username)
+
+@app.route('/delete_user/<username>', methods=['POST'])
+@login_required
+def delete_user(username):
+    if not current_user.is_playmaker:
+        flash('Only playmakers can delete users')
+        return redirect(url_for('dashboard'))
+        
+    user = User.query.filter_by(username=username).first()
+    if user:
+        Rating.query.filter_by(user_id=user.id).delete()
+        db.session.delete(user)
+        db.session.commit()
+        flash(f'User {username} has been deleted')
+    else:
+        flash(f'User {username} not found')
+    return redirect(url_for('dashboard'))
+
+@app.route('/leaderboard')
+def leaderboard():
+    # Get top 10 players by points
+    top_players = User.query.filter_by(is_playmaker=False).order_by(User.points.desc()).limit(10).all()
+    
+    # Get current user's rank if logged in
+    current_user_rank = None
+    if current_user.is_authenticated and not current_user.is_playmaker:
+        higher_points = User.query.filter(
+            User.points > current_user.points,
+            User.is_playmaker == False
+        ).count()
+        current_user_rank = higher_points + 1
+    
+    return render_template('leaderboard.html', 
+                         top_players=top_players, 
+                         current_user_rank=current_user_rank)
 
 # Test API endpoint
 @app.route('/api/test')
