@@ -20,16 +20,20 @@ app.config['SECRET_KEY'] = Config.SECRET_KEY
 app.config['MONGO_URI'] = Config.MONGODB_URI
 
 # Initialize extensions
+mongo = PyMongo()
+login_manager = LoginManager()
+
 try:
-    mongo = PyMongo(app)
+    # Initialize MongoDB
+    mongo.init_app(app)
     # Test connection
     mongo.db.command('ping')
     logger.info("Successfully connected to MongoDB")
 except Exception as e:
     logger.error(f"Failed to connect to MongoDB: {str(e)}")
-    mongo = None
+    # Don't set mongo to None, keep the PyMongo instance
 
-login_manager = LoginManager()
+# Initialize login manager
 login_manager.init_app(app)
 
 from . import models  # Import models after app initialization
