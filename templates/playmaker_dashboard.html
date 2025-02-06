@@ -8,7 +8,7 @@
         <div class="card">
             <div class="card-body">
                 <h2><i class="fas fa-crown me-2"></i>Playmaker Dashboard</h2>
-                <p class="lead">Welcome, {{ user.username }}</p>
+                <p class="lead">Welcome, {{ user.username if user else 'Playmaker' }}</p>
             </div>
         </div>
     </div>

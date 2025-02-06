@@ -152,7 +152,8 @@ def dashboard():
             return render_template('playmaker_dashboard.html', 
                                 samples=samples, 
                                 ratings=ratings, 
-                                users=users)
+                                users=users,
+                                user=current_user)
         else:
             # Get all samples
             samples = list(mongo.db.samples.find())
