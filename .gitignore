@@ -8,4 +8,5 @@ venv/
 .env
 *.db
 .DS_Store
-.vercel 
+.vercel
+.env.local 

@@ -8,6 +8,7 @@ from flask_cors import CORS
 from flask_pymongo import PyMongo
 from bson import ObjectId
 from models import User
+from pymongo.errors import PyMongoError
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -37,6 +38,8 @@ def load_user(user_id):
 def index():
     logger.debug('Accessing index page')
     try:
+        if not check_db_connection():
+            return "Database connection error", 500
         return render_template('index.html')
     except Exception as e:
         logger.error(f'Error in index route: {str(e)}')
@@ -214,6 +217,34 @@ def test_api():
         'message': 'Backend is active',
         'timestamp': datetime.utcnow().isoformat()
     })
+
+@app.errorhandler(PyMongoError)
+def handle_mongo_error(error):
+    logger.error(f"MongoDB Error: {str(error)}")
+    return "Database error occurred", 500
+
+def check_db_connection():
+    try:
+        # The ping command is lightweight and checks if the database is responding
+        mongo.db.command('ping')
+        logger.info("Successfully connected to MongoDB")
+        return True
+    except Exception as e:
+        logger.error(f"MongoDB connection error: {str(e)}")
+        return False
+
+def setup_mongodb_indexes():
+    try:
+        # Create indexes for faster queries
+        mongo.db.users.create_index('username', unique=True)
+        mongo.db.ratings.create_index([('user_id', 1), ('sample_id', 1)])
+        mongo.db.users.create_index([('points', -1)])
+        logger.info("MongoDB indexes created successfully")
+    except Exception as e:
+        logger.error(f"Error creating MongoDB indexes: {str(e)}")
+
+# Call this when the app starts
+setup_mongodb_indexes()
 
 if __name__ == '__main__':
     app.run(debug=True)
