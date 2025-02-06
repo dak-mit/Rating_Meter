@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="text-center py-5">
+    <h1 class="display-4 mb-4">Welcome to the Rating Game</h1>
+    <p class="lead mb-4">Test your rating skills and compete with others!</p>
+    {% if not current_user.is_authenticated %}
+        <div class="d-grid gap-2 col-6 mx-auto">
+            <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg mb-2">Login</a>
+            <a href="{{ url_for('register') }}" class="btn btn-outline-primary btn-lg">Register</a>
+        </div>
+    {% else %}
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg">Go to Dashboard</a>
+    {% endif %}
+</div>
+{% endblock %} 

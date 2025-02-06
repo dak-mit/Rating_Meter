@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}Player Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <h2><i class="fas fa-user-circle me-2"></i>Welcome, {{ current_user.username }}</h2>
+                <p class="lead">
+                    <i class="fas fa-star me-2"></i>Your Total Points: 
+                    <span class="badge bg-primary">{{ current_user.points }}</span>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h3 class="card-title">
+                    <i class="fas fa-tasks me-2"></i>Available Samples to Rate
+                </h3>
+                {% if samples %}
+                    {% for sample in samples %}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-flask me-2"></i>{{ sample.name }}
+                            </h5>
+                            <p class="card-text">{{ sample.description }}</p>
+                            <form method="POST" action="{{ url_for('rate_sample', sample_id=sample.id) }}" class="rating-form">
+                                <div class="mb-3">
+                                    <label for="rating" class="form-label">Your Rating (0-10)</label>
+                                    <input type="range" class="form-range" id="rating-{{ sample.id }}" 
+                                           name="rating" min="0" max="10" step="0.5" 
+                                           oninput="updateRatingMeter(this.value, {{ sample.id }})">
+                                    <div class="rating-meter">
+                                        <div class="rating-meter-fill" id="meter-{{ sample.id }}" style="width: 0%"></div>
+                                    </div>
+                                    <div class="text-center" id="rating-value-{{ sample.id }}">0</div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-paper-plane me-2"></i>Submit Rating
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-check-circle fa-3x mb-3 text-success"></i>
+                        <p>No new samples available to rate.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h3 class="card-title">
+                    <i class="fas fa-history me-2"></i>Your Previous Ratings
+                </h3>
+                {% if ratings %}
+                    {% for rating in ratings %}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-flask me-2"></i>{{ rating.sample.name }}
+                            </h5>
+                            <div class="rating-comparison">
+                                <div class="mb-2">
+                                    <small class="text-muted">Your Rating:</small>
+                                    <div class="rating-meter">
+                                        <div class="rating-meter-fill" style="width: {{ rating.rating_value * 10 }}%"></div>
+                                    </div>
+                                    <span class="badge bg-primary">{{ rating.rating_value }}/10</span>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">Playmaker Rating:</small>
+                                    <div class="rating-meter">
+                                        <div class="rating-meter-fill" style="width: {{ rating.sample.playmaker_rating * 10 }}%"></div>
+                                    </div>
+                                    <span class="badge bg-secondary">{{ rating.sample.playmaker_rating }}/10</span>
+                                </div>
+                            </div>
+                            <p class="card-text">
+                                <i class="fas fa-trophy me-2"></i>Points Earned: 
+                                <span class="badge bg-success">{{ rating.points_earned }}</span>
+                            </p>
+                            <small class="text-muted">
+                                <i class="fas fa-clock me-1"></i>
+                                Rated on: {{ rating.created_at.strftime('%Y-%m-%d %H:%M') }}
+                            </small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-hourglass-start fa-3x mb-3 text-muted"></i>
+                        <p>You haven't rated any samples yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateRatingMeter(value, sampleId) {
+    const meter = document.getElementById(`meter-${sampleId}`);
+    const valueDisplay = document.getElementById(`rating-value-${sampleId}`);
+    meter.style.width = `${value * 10}%`;
+    valueDisplay.textContent = value;
+}
+</script>
+{% endblock %} 

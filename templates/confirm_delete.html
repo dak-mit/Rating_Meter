@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Confirm Delete User{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <h2 class="card-title mb-4">Confirm Delete User</h2>
+                <p class="lead">Are you sure you want to delete user "{{ username }}"?</p>
+                <p class="text-danger">This action cannot be undone!</p>
+                
+                <form method="POST" action="{{ url_for('delete_user', username=username) }}" class="d-inline">
+                    <button type="submit" class="btn btn-danger">Yes, Delete User</button>
+                </form>
+                
+                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

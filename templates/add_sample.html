@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Add Sample{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">Add New Sample</h2>
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Sample Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="rating" class="form-label">Your Rating (0-10)</label>
+                        <input type="number" class="form-control" id="rating" name="rating" 
+                               min="0" max="10" step="0.5" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Add Sample</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

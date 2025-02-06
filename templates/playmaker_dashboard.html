@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Playmaker Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h2>Welcome, {{ current_user.username }}</h2>
+        <a href="{{ url_for('add_sample') }}" class="btn btn-primary">Add New Sample</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h3 class="card-title">Samples</h3>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Description</th>
+                                <th>Your Rating</th>
+                                <th>Created At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sample in samples %}
+                            <tr>
+                                <td>{{ sample.name }}</td>
+                                <td>{{ sample.description }}</td>
+                                <td>{{ sample.playmaker_rating }}/10</td>
+                                <td>{{ sample.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <h3 class="card-title">Player Ratings</h3>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Player</th>
+                                <th>Sample</th>
+                                <th>Rating</th>
+                                <th>Points Earned</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rating in ratings %}
+                            <tr>
+                                <td>{{ rating.user.username }}</td>
+                                <td>{{ rating.sample.name }}</td>
+                                <td>{{ rating.rating_value }}/10</td>
+                                <td>{{ rating.points_earned }}</td>
+                                <td>{{ rating.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-body">
+        <h3 class="card-title">Manage Users</h3>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Total Points</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ user.username }}</td>
+                        <td>{{ user.points }}</td>
+                        <td>
+                            <a href="{{ url_for('confirm_delete_user', username=user.username) }}" 
+                               class="btn btn-danger btn-sm">Delete User</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %} 
