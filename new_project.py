@@ -11,9 +11,13 @@ import tempfile
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 
-# Simplified SQLite configuration for Vercel
+# Modified SQLite configuration for Vercel
 if 'VERCEL' in os.environ:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tmp/rating_game.db'
+    # Use absolute path in /tmp directory
+    sqlite_path = '/tmp/rating_game.db'
+    # Ensure the directory exists and is writable
+    os.makedirs('/tmp', exist_ok=True)
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{sqlite_path}'
 else:
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///rating_game.db'
 
@@ -71,7 +75,7 @@ def index():
         return render_template('index.html')
     except Exception as e:
         logger.error(f'Error in index route: {str(e)}')
-        return str(e), 500
+        return f"Error initializing application: {str(e)}", 500
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -243,9 +247,9 @@ def handle_500_error(e):
 def handle_404_error(e):
     return render_template('error.html', error="Page not found"), 404
 
-# Remove the @app.before_first_request decorator and create a function to initialize the database
+# Modify the initialization function
 def initialize_database():
-    with app.app_context():
+    try:
         db.create_all()
         
         # Check if we need to add demo data
@@ -266,16 +270,20 @@ def initialize_database():
             )
             db.session.add(sample1)
             
-            db.session.commit()
+            try:
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Error committing demo data: {str(e)}")
+                raise
+    except Exception as e:
+        logger.error(f"Error initializing database: {str(e)}")
+        raise
 
-# Remove the previous database configuration section and modify the end of file
+# Move the app.wsgi_app line here, before any route definitions
+app.wsgi_app = app.wsgi_app
+
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()
+        initialize_database()
     app.run(debug=True)
-else:
-    with app.app_context():
-        db.create_all()
-
-# The app.wsgi_app line should be before the if __name__ == '__main__' block
-app = app.wsgi_app
