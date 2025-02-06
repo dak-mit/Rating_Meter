@@ -1,43 +1,30 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
-from flask_login import LoginManager, login_user, login_required, logout_user, current_user
+from flask import render_template, request, redirect, url_for, flash, session, jsonify
+from flask_login import login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import os
 import logging
-from flask_cors import CORS
-from flask_pymongo import PyMongo
 from bson import ObjectId
-from models import User
 from pymongo.errors import PyMongoError
+
+from . import app, mongo, login_manager
+from .models import User
+from .config import Config
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-def create_app():
-    app = Flask(__name__, template_folder='../templates')
-    CORS(app)
+# Configure app
+app.config['SECRET_KEY'] = Config.SECRET_KEY
+app.config['MONGO_URI'] = Config.MONGODB_URI
 
-    # MongoDB Configuration
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
-    mongodb_uri = os.environ.get('MONGODB_URI')
-    
-    if not mongodb_uri:
-        logger.warning("MONGODB_URI not found in environment variables")
-        mongodb_uri = 'mongodb://localhost:27017/rating_meter'  # fallback for local development
-    
-    app.config['MONGO_URI'] = mongodb_uri
-    
-    return app
-
-app = create_app()
-mongo = PyMongo(app)
-
-# Login manager setup
-login_manager = LoginManager(app)
+# Initialize extensions
+mongo.init_app(app)
+login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-PLAYMAKER_PASSWORD = 'qwertypoiu'
+PLAYMAKER_PASSWORD = Config.PLAYMAKER_PASSWORD
 
 @login_manager.user_loader
 def load_user(user_id):
