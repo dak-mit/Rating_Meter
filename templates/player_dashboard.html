@@ -7,10 +7,10 @@
     <div class="col-md-12">
         <div class="card">
             <div class="card-body">
-                <h2><i class="fas fa-user-circle me-2"></i>Welcome, {{ current_user.username }}</h2>
+                <h2><i class="fas fa-user-circle me-2"></i>Welcome, {{ user.username }}</h2>
                 <p class="lead">
                     <i class="fas fa-star me-2"></i>Your Total Points: 
-                    <span class="badge bg-primary">{{ current_user.points }}</span>
+                    <span class="badge bg-primary">{{ user.points }}</span>
                 </p>
             </div>
         </div>
@@ -90,7 +90,7 @@
                             </p>
                             <small class="text-muted">
                                 <i class="fas fa-clock me-1"></i>
-                                Rated on: {{ rating.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                Rated on: {{ rating.formatted_date }}
                             </small>
                         </div>
                     </div>
@@ -106,6 +106,9 @@
     </div>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
 <script>
 function updateRatingValue(slider, sampleId) {
     const value = parseFloat(slider.value);

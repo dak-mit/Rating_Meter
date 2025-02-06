@@ -111,7 +111,9 @@ def dashboard():
             
             # Get user's ratings with sample information
             ratings = []
-            user_ratings = mongo.db.ratings.find({'user_id': ObjectId(current_user.id)})
+            # Use current_user.id which comes from the User class
+            user_id = ObjectId(current_user.get_id())  # Get the user ID using get_id()
+            user_ratings = mongo.db.ratings.find({'user_id': user_id})
             
             for rating in user_ratings:
                 try:
@@ -121,24 +123,28 @@ def dashboard():
                         # Add sample info to rating
                         rating['sample'] = {
                             'name': sample['name'],
-                            'playmaker_rating': sample['playmaker_rating']
+                            'playmaker_rating': sample.get('playmaker_rating', 0)
                         }
+                        # Add formatted date
+                        rating['formatted_date'] = rating['created_at'].strftime('%Y-%m-%d %H:%M')
                         ratings.append(rating)
                 except Exception as e:
-                    logger.error(f"Error processing rating {rating['_id']}: {str(e)}")
+                    logger.error(f"Error processing rating {rating.get('_id', 'unknown')}: {str(e)}")
                     continue
             
             # Get samples that haven't been rated
-            rated_sample_ids = [ObjectId(r['sample_id']) for r in ratings]
+            rated_sample_ids = [rating['sample_id'] for rating in ratings]
             unrated_samples = [s for s in samples if s['_id'] not in rated_sample_ids]
             
             logger.debug(f"Found {len(unrated_samples)} unrated samples and {len(ratings)} ratings")
             
             return render_template('player_dashboard.html', 
                                 samples=unrated_samples, 
-                                ratings=ratings)
+                                ratings=ratings,
+                                user=current_user)  # Pass current_user explicitly
     except Exception as e:
         logger.error(f"Error in dashboard: {str(e)}")
+        logger.exception("Full traceback:")  # This will log the full traceback
         flash('Error loading dashboard')
         return redirect(url_for('index'))
 
