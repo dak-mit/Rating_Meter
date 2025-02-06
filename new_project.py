@@ -4,12 +4,21 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import os
+import logging
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-here'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///rating_game.db'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
+
+# For Vercel, we need to use a different database approach
+# SQLite won't work properly in Vercel's serverless environment
 if 'VERCEL' in os.environ:
+    # For demo purposes, we'll still use SQLite but in the /tmp directory
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tmp/rating_game.db'
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///rating_game.db'
+
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
@@ -46,9 +55,17 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 # Routes
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 @app.route('/')
 def index():
-    return render_template('index.html')
+    logger.debug('Accessing index page')
+    try:
+        return render_template('index.html')
+    except Exception as e:
+        logger.error(f'Error in index route: {str(e)}')
+        return str(e), 500
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -211,6 +228,44 @@ def leaderboard():
     return render_template('leaderboard.html', 
                          top_players=top_players, 
                          current_user_rank=current_user_rank)
+
+@app.errorhandler(500)
+def handle_500_error(e):
+    return render_template('error.html', error=str(e)), 500
+
+@app.errorhandler(404)
+def handle_404_error(e):
+    return render_template('error.html', error="Page not found"), 404
+
+# Add this at the end of the file
+app = app.wsgi_app
+
+# Database configuration
+if 'VERCEL' in os.environ:
+    # Initialize with demo data for Vercel
+    @app.before_first_request
+    def initialize_database():
+        db.create_all()
+        
+        # Check if we need to add demo data
+        if not User.query.first():
+            # Create a demo playmaker
+            playmaker = User(
+                username="demo_playmaker",
+                password_hash=generate_password_hash("demo123"),
+                is_playmaker=True
+            )
+            db.session.add(playmaker)
+            
+            # Create some demo samples
+            sample1 = Sample(
+                name="Demo Sample 1",
+                description="This is a demo sample",
+                playmaker_rating=8.5
+            )
+            db.session.add(sample1)
+            
+            db.session.commit()
 
 if __name__ == '__main__':
     with app.app_context():

@@ -11,5 +11,10 @@
             "src": "/(.*)",
             "dest": "new_project.py"
         }
-    ]
+    ],
+    "env": {
+        "FLASK_APP": "new_project.py",
+        "FLASK_ENV": "production",
+        "PYTHON_VERSION": "3.9"
+    }
 } 
