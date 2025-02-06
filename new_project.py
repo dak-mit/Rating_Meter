@@ -66,6 +66,8 @@ logger = logging.getLogger(__name__)
 def index():
     logger.debug('Accessing index page')
     try:
+        if 'VERCEL' in os.environ:
+            initialize_database()
         return render_template('index.html')
     except Exception as e:
         logger.error(f'Error in index route: {str(e)}')
@@ -241,14 +243,9 @@ def handle_500_error(e):
 def handle_404_error(e):
     return render_template('error.html', error="Page not found"), 404
 
-# Add this at the end of the file
-app = app.wsgi_app
-
-# Database configuration
-if 'VERCEL' in os.environ:
-    # Initialize with demo data for Vercel
-    @app.before_first_request
-    def initialize_database():
+# Remove the @app.before_first_request decorator and create a function to initialize the database
+def initialize_database():
+    with app.app_context():
         db.create_all()
         
         # Check if we need to add demo data
@@ -271,6 +268,7 @@ if 'VERCEL' in os.environ:
             
             db.session.commit()
 
+# Remove the previous database configuration section and modify the end of file
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
@@ -278,3 +276,6 @@ if __name__ == '__main__':
 else:
     with app.app_context():
         db.create_all()
+
+# The app.wsgi_app line should be before the if __name__ == '__main__' block
+app = app.wsgi_app
