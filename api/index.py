@@ -19,8 +19,20 @@ CORS(app)
 
 # MongoDB Configuration
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
-app.config['MONGO_URI'] = os.environ.get('MONGODB_URI', 'your-mongodb-uri-here')
-mongo = PyMongo(app)
+mongodb_uri = os.environ.get('MONGODB_URI')
+if not mongodb_uri:
+    logger.error("MONGODB_URI not found in environment variables")
+    raise ValueError("MONGODB_URI environment variable is required")
+
+app.config['MONGO_URI'] = mongodb_uri
+try:
+    mongo = PyMongo(app)
+    # Test the connection
+    mongo.db.command('ping')
+    logger.info("Successfully connected to MongoDB")
+except Exception as e:
+    logger.error(f"Failed to connect to MongoDB: {str(e)}")
+    raise
 
 # Login manager setup
 login_manager = LoginManager(app)
@@ -217,6 +229,27 @@ def test_api():
         'message': 'Backend is active',
         'timestamp': datetime.utcnow().isoformat()
     })
+
+@app.route('/api/db-test')
+def test_db():
+    try:
+        # Test MongoDB connection
+        mongo.db.command('ping')
+        # Try to access a collection
+        user_count = mongo.db.users.count_documents({})
+        return jsonify({
+            'status': 'success',
+            'message': 'Database connection successful',
+            'user_count': user_count,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Database test failed: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
 
 @app.errorhandler(PyMongoError)
 def handle_mongo_error(error):
