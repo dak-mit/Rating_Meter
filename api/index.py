@@ -118,9 +118,37 @@ def dashboard():
         logger.debug(f"User accessing dashboard: {current_user.username}")
         
         if current_user.is_playmaker:
+            # Get all samples
             samples = list(mongo.db.samples.find())
-            ratings = list(mongo.db.ratings.find())
+            
+            # Get ratings with user information
+            ratings = []
+            ratings_cursor = mongo.db.ratings.find()
+            for rating in ratings_cursor:
+                try:
+                    # Get user information for each rating
+                    user = mongo.db.users.find_one({'_id': rating['user_id']})
+                    if user:
+                        rating['user'] = {
+                            'username': user.get('username', 'Unknown User'),
+                            'points': user.get('points', 0)
+                        }
+                    # Get sample information
+                    sample = mongo.db.samples.find_one({'_id': rating['sample_id']})
+                    if sample:
+                        rating['sample'] = {
+                            'name': sample.get('name', 'Unknown Sample'),
+                            'playmaker_rating': sample.get('playmaker_rating', 0)
+                        }
+                    rating['formatted_date'] = rating['created_at'].strftime('%Y-%m-%d %H:%M')
+                    ratings.append(rating)
+                except Exception as e:
+                    logger.error(f"Error processing rating: {str(e)}")
+                    continue
+            
+            # Get non-playmaker users
             users = list(mongo.db.users.find({'is_playmaker': False}))
+            
             return render_template('playmaker_dashboard.html', 
                                 samples=samples, 
                                 ratings=ratings, 

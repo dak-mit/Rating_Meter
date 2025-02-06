@@ -5,51 +5,30 @@
 {% block content %}
 <div class="row mb-4">
     <div class="col-md-12">
-        <h2>Welcome, {{ current_user.username }}</h2>
-        <a href="{{ url_for('add_sample') }}" class="btn btn-primary">Add New Sample</a>
+        <div class="card">
+            <div class="card-body">
+                <h2><i class="fas fa-crown me-2"></i>Playmaker Dashboard</h2>
+                <p class="lead">Welcome, {{ user.username }}</p>
+            </div>
+        </div>
     </div>
 </div>
 
 <div class="row">
-    <div class="col-md-12">
+    <div class="col-md-8">
         <div class="card mb-4">
             <div class="card-body">
-                <h3 class="card-title">Samples</h3>
+                <h3 class="card-title">
+                    <i class="fas fa-list me-2"></i>All Ratings
+                </h3>
                 <div class="table-responsive">
                     <table class="table">
                         <thead>
                             <tr>
-                                <th>Name</th>
-                                <th>Description</th>
-                                <th>Your Rating</th>
-                                <th>Created At</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for sample in samples %}
-                            <tr>
-                                <td>{{ sample.name }}</td>
-                                <td>{{ sample.description }}</td>
-                                <td>{{ sample.playmaker_rating }}/10</td>
-                                <td>{{ sample.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-body">
-                <h3 class="card-title">Player Ratings</h3>
-                <div class="table-responsive">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Player</th>
+                                <th>User</th>
                                 <th>Sample</th>
-                                <th>Rating</th>
+                                <th>User Rating</th>
+                                <th>Your Rating</th>
                                 <th>Points Earned</th>
                                 <th>Date</th>
                             </tr>
@@ -60,8 +39,13 @@
                                 <td>{{ rating.user.username }}</td>
                                 <td>{{ rating.sample.name }}</td>
                                 <td>{{ rating.rating_value }}/10</td>
+                                <td>{{ rating.sample.playmaker_rating }}/10</td>
                                 <td>{{ rating.points_earned }}</td>
-                                <td>{{ rating.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>{{ rating.formatted_date }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center">No ratings yet</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -69,35 +53,67 @@
                 </div>
             </div>
         </div>
-    </div>
-</div>
 
-<div class="card mt-4">
-    <div class="card-body">
-        <h3 class="card-title">Manage Users</h3>
-        <div class="table-responsive">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Username</th>
-                        <th>Total Points</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
+        <div class="card">
+            <div class="card-body">
+                <h3 class="card-title">
+                    <i class="fas fa-plus me-2"></i>Add New Sample
+                </h3>
+                <form action="{{ url_for('add_sample') }}" method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Sample Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="rating" class="form-label">Your Rating (0-10)</label>
+                        <input type="range" class="form-range" id="rating" name="rating" 
+                               min="0" max="10" step="0.5" oninput="updateRatingValue(this)">
+                        <p>Rating: <span id="ratingValue">5</span></p>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Sample</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h3 class="card-title">
+                    <i class="fas fa-users me-2"></i>Users
+                </h3>
+                <div class="list-group">
                     {% for user in users %}
-                    <tr>
-                        <td>{{ user.username }}</td>
-                        <td>{{ user.points }}</td>
-                        <td>
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="mb-1">{{ user.username }}</h5>
+                                <small>Points: {{ user.points }}</small>
+                            </div>
                             <a href="{{ url_for('confirm_delete_user', username=user.username) }}" 
-                               class="btn btn-danger btn-sm">Delete User</a>
-                        </td>
-                    </tr>
+                               class="btn btn-danger btn-sm">
+                                <i class="fas fa-trash"></i>
+                            </a>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="list-group-item">No users registered yet</div>
                     {% endfor %}
-                </tbody>
-            </table>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateRatingValue(slider) {
+    document.getElementById('ratingValue').textContent = slider.value;
+}
+</script>
 {% endblock %} 
