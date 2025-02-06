@@ -11,13 +11,9 @@ import tempfile
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 
-# Modified SQLite configuration for Vercel
+# Use in-memory SQLite for Vercel
 if 'VERCEL' in os.environ:
-    # Use absolute path in /tmp directory
-    sqlite_path = '/tmp/rating_game.db'
-    # Ensure the directory exists and is writable
-    os.makedirs('/tmp', exist_ok=True)
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{sqlite_path}'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
 else:
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///rating_game.db'
 
@@ -70,12 +66,10 @@ logger = logging.getLogger(__name__)
 def index():
     logger.debug('Accessing index page')
     try:
-        if 'VERCEL' in os.environ:
-            initialize_database()
         return render_template('index.html')
     except Exception as e:
         logger.error(f'Error in index route: {str(e)}')
-        return f"Error initializing application: {str(e)}", 500
+        return f"Error in application: {str(e)}", 500
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -247,12 +241,21 @@ def handle_500_error(e):
 def handle_404_error(e):
     return render_template('error.html', error="Page not found"), 404
 
-# Modify the initialization function
+# Initialize database for each request in Vercel environment
+@app.before_request
+def before_request():
+    if 'VERCEL' in os.environ:
+        try:
+            initialize_database()
+        except Exception as e:
+            logger.error(f"Error initializing database: {str(e)}")
+
+# Modify initialize_database function
 def initialize_database():
     try:
         db.create_all()
         
-        # Check if we need to add demo data
+        # Only add demo data if no users exist
         if not User.query.first():
             # Create a demo playmaker
             playmaker = User(
@@ -275,15 +278,23 @@ def initialize_database():
             except Exception as e:
                 db.session.rollback()
                 logger.error(f"Error committing demo data: {str(e)}")
-                raise
     except Exception as e:
-        logger.error(f"Error initializing database: {str(e)}")
-        raise
+        logger.error(f"Error in initialize_database: {str(e)}")
 
-# Move the app.wsgi_app line here, before any route definitions
-app.wsgi_app = app.wsgi_app
+# Remove database initialization from index route
+@app.route('/')
+def index():
+    logger.debug('Accessing index page')
+    try:
+        return render_template('index.html')
+    except Exception as e:
+        logger.error(f'Error in index route: {str(e)}')
+        return f"Error in application: {str(e)}", 500
 
 if __name__ == '__main__':
     with app.app_context():
         initialize_database()
     app.run(debug=True)
+
+# The WSGI application
+application = app
