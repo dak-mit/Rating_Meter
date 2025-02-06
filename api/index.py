@@ -107,14 +107,22 @@ def dashboard():
                                 users=users)
         else:
             samples = list(mongo.db.samples.find())
-            user_ratings = list(mongo.db.ratings.find(
-                {'user_id': ObjectId(current_user.id)}
-            ))
-            rated_sample_ids = [r['sample_id'] for r in user_ratings]
+            # Get ratings and convert ObjectId to string
+            ratings_cursor = mongo.db.ratings.find({'user_id': ObjectId(current_user.id)})
+            ratings = []
+            for rating in ratings_cursor:
+                # Add sample information to rating
+                sample = mongo.db.samples.find_one({'_id': rating['sample_id']})
+                if sample:
+                    rating['sample_name'] = sample['name']
+                ratings.append(rating)
+            
+            rated_sample_ids = [r['sample_id'] for r in ratings]
             unrated_samples = [s for s in samples if s['_id'] not in rated_sample_ids]
+            
             return render_template('player_dashboard.html', 
                                 samples=unrated_samples, 
-                                ratings=user_ratings)
+                                ratings=ratings)
     except Exception as e:
         logger.error(f"Error in dashboard: {str(e)}")
         flash('Error loading dashboard')
