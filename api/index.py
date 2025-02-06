@@ -106,19 +106,33 @@ def dashboard():
                                 ratings=ratings, 
                                 users=users)
         else:
+            # Get all samples
             samples = list(mongo.db.samples.find())
-            # Get ratings and convert ObjectId to string
-            ratings_cursor = mongo.db.ratings.find({'user_id': ObjectId(current_user.id)})
-            ratings = []
-            for rating in ratings_cursor:
-                # Add sample information to rating
-                sample = mongo.db.samples.find_one({'_id': rating['sample_id']})
-                if sample:
-                    rating['sample_name'] = sample['name']
-                ratings.append(rating)
             
-            rated_sample_ids = [r['sample_id'] for r in ratings]
+            # Get user's ratings with sample information
+            ratings = []
+            user_ratings = mongo.db.ratings.find({'user_id': ObjectId(current_user.id)})
+            
+            for rating in user_ratings:
+                try:
+                    # Find the corresponding sample
+                    sample = mongo.db.samples.find_one({'_id': rating['sample_id']})
+                    if sample:
+                        # Add sample info to rating
+                        rating['sample'] = {
+                            'name': sample['name'],
+                            'playmaker_rating': sample['playmaker_rating']
+                        }
+                        ratings.append(rating)
+                except Exception as e:
+                    logger.error(f"Error processing rating {rating['_id']}: {str(e)}")
+                    continue
+            
+            # Get samples that haven't been rated
+            rated_sample_ids = [ObjectId(r['sample_id']) for r in ratings]
             unrated_samples = [s for s in samples if s['_id'] not in rated_sample_ids]
+            
+            logger.debug(f"Found {len(unrated_samples)} unrated samples and {len(ratings)} ratings")
             
             return render_template('player_dashboard.html', 
                                 samples=unrated_samples, 
