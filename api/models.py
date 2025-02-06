@@ -21,8 +21,7 @@ class User(UserMixin):
         return False
 
     def get_id(self):
-        # Convert ObjectId to string for Flask-Login
-        return str(self.user_data.get('_id'))
+        return str(self.user_data.get('_id', ''))
 
     @property
     def id(self):
@@ -31,7 +30,7 @@ class User(UserMixin):
 
     @property
     def username(self):
-        return self.user_data.get('username')
+        return self.user_data.get('username', 'Unknown User')
 
     @property
     def password_hash(self):

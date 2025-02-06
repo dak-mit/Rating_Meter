@@ -82,21 +82,41 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        user_data = mongo.db.users.find_one({'username': username})
-        
-        if user_data and check_password_hash(user_data['password_hash'], password):
-            user = User(user_data)
-            login_user(user)
-            return redirect(url_for('dashboard'))
-        flash('Invalid username or password')
+        try:
+            username = request.form.get('username')
+            password = request.form.get('password')
+            
+            logger.debug(f"Login attempt for user: {username}")
+            
+            user_data = mongo.db.users.find_one({'username': username})
+            if user_data:
+                if check_password_hash(user_data['password_hash'], password):
+                    try:
+                        user = User(user_data)
+                        login_user(user)
+                        logger.debug(f"User {username} logged in successfully")
+                        return redirect(url_for('dashboard'))
+                    except Exception as e:
+                        logger.error(f"Error creating user object: {str(e)}")
+                        flash('Error during login. Please try again.')
+                else:
+                    logger.debug(f"Invalid password for user: {username}")
+                    flash('Invalid username or password')
+            else:
+                logger.debug(f"User not found: {username}")
+                flash('Invalid username or password')
+        except Exception as e:
+            logger.error(f"Login error: {str(e)}")
+            flash('Error during login. Please try again.')
+            
     return render_template('login.html')
 
 @app.route('/dashboard')
 @login_required
 def dashboard():
     try:
+        logger.debug(f"User accessing dashboard: {current_user.username}")
+        
         if current_user.is_playmaker:
             samples = list(mongo.db.samples.find())
             ratings = list(mongo.db.ratings.find())
@@ -108,44 +128,50 @@ def dashboard():
         else:
             # Get all samples
             samples = list(mongo.db.samples.find())
+            logger.debug(f"Found {len(samples)} total samples")
             
-            # Get user's ratings with sample information
-            ratings = []
-            # Use current_user.id which comes from the User class
-            user_id = ObjectId(current_user.get_id())  # Get the user ID using get_id()
-            user_ratings = mongo.db.ratings.find({'user_id': user_id})
-            
-            for rating in user_ratings:
-                try:
-                    # Find the corresponding sample
-                    sample = mongo.db.samples.find_one({'_id': rating['sample_id']})
-                    if sample:
-                        # Add sample info to rating
-                        rating['sample'] = {
-                            'name': sample['name'],
-                            'playmaker_rating': sample.get('playmaker_rating', 0)
-                        }
-                        # Add formatted date
-                        rating['formatted_date'] = rating['created_at'].strftime('%Y-%m-%d %H:%M')
-                        ratings.append(rating)
-                except Exception as e:
-                    logger.error(f"Error processing rating {rating.get('_id', 'unknown')}: {str(e)}")
-                    continue
-            
-            # Get samples that haven't been rated
-            rated_sample_ids = [rating['sample_id'] for rating in ratings]
-            unrated_samples = [s for s in samples if s['_id'] not in rated_sample_ids]
-            
-            logger.debug(f"Found {len(unrated_samples)} unrated samples and {len(ratings)} ratings")
-            
-            return render_template('player_dashboard.html', 
-                                samples=unrated_samples, 
-                                ratings=ratings,
-                                user=current_user)  # Pass current_user explicitly
+            try:
+                # Get user's ratings
+                user_id = ObjectId(current_user.get_id())
+                logger.debug(f"Looking for ratings for user_id: {user_id}")
+                
+                user_ratings = list(mongo.db.ratings.find({'user_id': user_id}))
+                logger.debug(f"Found {len(user_ratings)} ratings for user")
+                
+                ratings = []
+                for rating in user_ratings:
+                    try:
+                        sample = mongo.db.samples.find_one({'_id': rating['sample_id']})
+                        if sample:
+                            rating['sample'] = {
+                                'name': sample.get('name', 'Unknown Sample'),
+                                'playmaker_rating': sample.get('playmaker_rating', 0)
+                            }
+                            rating['formatted_date'] = rating['created_at'].strftime('%Y-%m-%d %H:%M')
+                            ratings.append(rating)
+                    except Exception as e:
+                        logger.error(f"Error processing individual rating: {str(e)}")
+                        continue
+                
+                # Get unrated samples
+                rated_sample_ids = [rating.get('sample_id') for rating in ratings if rating.get('sample_id')]
+                unrated_samples = [s for s in samples if s['_id'] not in rated_sample_ids]
+                
+                logger.debug(f"Rendering dashboard with {len(unrated_samples)} unrated samples and {len(ratings)} ratings")
+                
+                return render_template('player_dashboard.html', 
+                                    samples=unrated_samples, 
+                                    ratings=ratings,
+                                    user=current_user)
+                
+            except Exception as e:
+                logger.error(f"Error processing ratings: {str(e)}")
+                raise
+                
     except Exception as e:
-        logger.error(f"Error in dashboard: {str(e)}")
-        logger.exception("Full traceback:")  # This will log the full traceback
-        flash('Error loading dashboard')
+        logger.error(f"Dashboard error: {str(e)}")
+        logger.exception("Full traceback:")
+        flash('Error loading dashboard. Please try again.')
         return redirect(url_for('index'))
 
 @app.route('/add_sample', methods=['GET', 'POST'])
