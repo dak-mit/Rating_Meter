@@ -5,19 +5,23 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import os
 import logging
+from urllib.parse import urlparse
+import tempfile
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 
-# For Vercel, we need to use a different database approach
-# SQLite won't work properly in Vercel's serverless environment
+# Simplified SQLite configuration for Vercel
 if 'VERCEL' in os.environ:
-    # For demo purposes, we'll still use SQLite but in the /tmp directory
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tmp/rating_game.db'
 else:
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///rating_game.db'
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 300,
+}
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
