@@ -377,6 +377,34 @@ def setup_mongodb_indexes():
 # Call this when the app starts
 setup_mongodb_indexes()
 
+@app.route('/delete_sample/<sample_id>')
+@login_required
+def delete_sample(sample_id):
+    if not current_user.is_playmaker:
+        flash('Only playmakers can delete samples')
+        return redirect(url_for('dashboard'))
+    
+    try:
+        # Convert string ID to ObjectId
+        sample_obj_id = ObjectId(sample_id)
+        
+        # First delete all ratings associated with this sample
+        mongo.db.ratings.delete_many({'sample_id': sample_obj_id})
+        
+        # Then delete the sample
+        result = mongo.db.samples.delete_one({'_id': sample_obj_id})
+        
+        if result.deleted_count > 0:
+            flash('Sample deleted successfully')
+        else:
+            flash('Sample not found')
+            
+    except Exception as e:
+        logger.error(f"Error deleting sample: {str(e)}")
+        flash('Error deleting sample')
+        
+    return redirect(url_for('dashboard'))
+
 if __name__ == '__main__':
     app.run(debug=True)
 
