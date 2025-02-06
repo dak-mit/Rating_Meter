@@ -28,8 +28,15 @@ PLAYMAKER_PASSWORD = Config.PLAYMAKER_PASSWORD
 
 @login_manager.user_loader
 def load_user(user_id):
-    user_data = mongo.db.users.find_one({'_id': ObjectId(user_id)})
-    return User(user_data) if user_data else None
+    try:
+        # Convert string ID to ObjectId
+        if ObjectId.is_valid(user_id):
+            user_data = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+            return User(user_data) if user_data else None
+        return None
+    except Exception as e:
+        logger.error(f"Error loading user: {str(e)}")
+        return None
 
 # Routes
 @app.route('/')
@@ -89,17 +96,29 @@ def login():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    if current_user.is_playmaker:
-        samples = mongo.db.samples.find()
-        ratings = mongo.db.ratings.find()
-        users = mongo.db.users.find({'is_playmaker': False})
-        return render_template('playmaker_dashboard.html', samples=samples, ratings=ratings, users=users)
-    else:
-        samples = mongo.db.samples.find()
-        user_ratings = mongo.db.ratings.find({'user_id': current_user.id})
-        rated_sample_ids = [r['sample_id'] for r in user_ratings]
-        unrated_samples = [s for s in samples if s['_id'] not in rated_sample_ids]
-        return render_template('player_dashboard.html', samples=unrated_samples, ratings=user_ratings)
+    try:
+        if current_user.is_playmaker:
+            samples = list(mongo.db.samples.find())
+            ratings = list(mongo.db.ratings.find())
+            users = list(mongo.db.users.find({'is_playmaker': False}))
+            return render_template('playmaker_dashboard.html', 
+                                samples=samples, 
+                                ratings=ratings, 
+                                users=users)
+        else:
+            samples = list(mongo.db.samples.find())
+            user_ratings = list(mongo.db.ratings.find(
+                {'user_id': ObjectId(current_user.id)}
+            ))
+            rated_sample_ids = [r['sample_id'] for r in user_ratings]
+            unrated_samples = [s for s in samples if s['_id'] not in rated_sample_ids]
+            return render_template('player_dashboard.html', 
+                                samples=unrated_samples, 
+                                ratings=user_ratings)
+    except Exception as e:
+        logger.error(f"Error in dashboard: {str(e)}")
+        flash('Error loading dashboard')
+        return redirect(url_for('index'))
 
 @app.route('/add_sample', methods=['GET', 'POST'])
 @login_required
@@ -124,37 +143,47 @@ def add_sample():
         return redirect(url_for('dashboard'))
     return render_template('add_sample.html')
 
-@app.route('/rate_sample/<int:sample_id>', methods=['POST'])
+@app.route('/rate_sample/<sample_id>', methods=['POST'])
 @login_required
 def rate_sample(sample_id):
     if current_user.is_playmaker:
         return redirect(url_for('dashboard'))
     
-    sample = mongo.db.samples.find_one({'_id': ObjectId(sample_id)})
-    if not sample:
-        flash('Sample not found')
+    try:
+        # Convert string ID to ObjectId
+        sample_obj_id = ObjectId(sample_id)
+        sample = mongo.db.samples.find_one({'_id': sample_obj_id})
+        if not sample:
+            flash('Sample not found')
+            return redirect(url_for('dashboard'))
+        
+        rating_value = float(request.form.get('rating'))
+        
+        # Calculate points (maximum 10 points for exact match)
+        difference = abs(sample['playmaker_rating'] - rating_value)
+        points = max(0, 10 - int(difference * 2))
+        
+        rating_data = {
+            'user_id': ObjectId(current_user.id),
+            'sample_id': sample_obj_id,
+            'rating_value': rating_value,
+            'points_earned': points,
+            'created_at': datetime.utcnow()
+        }
+        
+        mongo.db.ratings.insert_one(rating_data)
+        current_user.points += points
+        mongo.db.users.update_one(
+            {'_id': ObjectId(current_user.id)}, 
+            {'$set': {'points': current_user.points}}
+        )
+        
+        flash(f'Rating submitted! You earned {points} points!')
         return redirect(url_for('dashboard'))
-    
-    rating_value = float(request.form.get('rating'))
-    
-    # Calculate points (maximum 10 points for exact match)
-    difference = abs(sample['playmaker_rating'] - rating_value)
-    points = max(0, 10 - int(difference * 2))
-    
-    rating_data = {
-        'user_id': current_user.id,
-        'sample_id': sample_id,
-        'rating_value': rating_value,
-        'points_earned': points,
-        'created_at': datetime.utcnow()
-    }
-    
-    mongo.db.ratings.insert_one(rating_data)
-    current_user.points += points
-    mongo.db.users.update_one({'_id': ObjectId(current_user.id)}, {'$set': {'points': current_user.points}})
-    
-    flash(f'Rating submitted! You earned {points} points!')
-    return redirect(url_for('dashboard'))
+    except Exception as e:
+        logger.error(f"Error in rate_sample: {str(e)}")
+        flash('Error processing rating')
+        return redirect(url_for('dashboard'))
 
 @app.route('/logout')
 @login_required

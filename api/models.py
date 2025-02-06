@@ -4,6 +4,8 @@ from flask_login import UserMixin
 
 class User(UserMixin):
     def __init__(self, user_data):
+        if user_data is None:
+            raise ValueError("User data cannot be None")
         self.user_data = user_data
 
     @property
@@ -19,19 +21,21 @@ class User(UserMixin):
         return False
 
     def get_id(self):
-        return str(self.user_data['_id'])
+        # Convert ObjectId to string for Flask-Login
+        return str(self.user_data.get('_id'))
 
     @property
     def id(self):
-        return str(self.user_data['_id'])
+        # Convert ObjectId to string
+        return str(self.user_data.get('_id'))
 
     @property
     def username(self):
-        return self.user_data['username']
+        return self.user_data.get('username')
 
     @property
     def password_hash(self):
-        return self.user_data['password_hash']
+        return self.user_data.get('password_hash')
 
     @property
     def is_playmaker(self):
