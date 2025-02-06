@@ -2,7 +2,7 @@
     "version": 2,
     "builds": [
         {
-            "src": "new_project.py",
+            "src": "api/index.py",
             "use": "@vercel/python",
             "config": {
                 "maxLambdaSize": "15mb",
@@ -12,11 +12,16 @@
     ],
     "routes": [
         {
+            "src": "/static/(.*)",
+            "dest": "/static/$1"
+        },
+        {
             "src": "/(.*)",
-            "dest": "new_project.py"
+            "dest": "api/index.py"
         }
     ],
     "env": {
-        "PYTHONPATH": "/var/task"
+        "FLASK_APP": "api/index.py",
+        "FLASK_ENV": "production"
     }
 } 
