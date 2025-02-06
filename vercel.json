@@ -12,23 +12,8 @@
     ],
     "routes": [
         {
-            "src": "/static/(.*)",
-            "dest": "/static/$1"
-        },
-        {
             "src": "/(.*)",
             "dest": "api/index.py"
         }
-    ],
-    "env": {
-        "FLASK_APP": "api/index.py",
-        "FLASK_ENV": "production",
-        "PYTHON_VERSION": "3.9"
-    },
-    "functions": {
-        "api/index.py": {
-            "memory": 1024,
-            "maxDuration": 10
-        }
-    }
+    ]
 } 

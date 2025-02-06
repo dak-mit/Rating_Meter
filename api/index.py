@@ -14,25 +14,24 @@ from pymongo.errors import PyMongoError
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__, template_folder='../templates')
-CORS(app)
+def create_app():
+    app = Flask(__name__, template_folder='../templates')
+    CORS(app)
 
-# MongoDB Configuration
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
-mongodb_uri = os.environ.get('MONGODB_URI')
-if not mongodb_uri:
-    logger.error("MONGODB_URI not found in environment variables")
-    raise ValueError("MONGODB_URI environment variable is required")
+    # MongoDB Configuration
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
+    mongodb_uri = os.environ.get('MONGODB_URI')
+    
+    if not mongodb_uri:
+        logger.warning("MONGODB_URI not found in environment variables")
+        mongodb_uri = 'mongodb://localhost:27017/rating_meter'  # fallback for local development
+    
+    app.config['MONGO_URI'] = mongodb_uri
+    
+    return app
 
-app.config['MONGO_URI'] = mongodb_uri
-try:
-    mongo = PyMongo(app)
-    # Test the connection
-    mongo.db.command('ping')
-    logger.info("Successfully connected to MongoDB")
-except Exception as e:
-    logger.error(f"Failed to connect to MongoDB: {str(e)}")
-    raise
+app = create_app()
+mongo = PyMongo(app)
 
 # Login manager setup
 login_manager = LoginManager(app)
