@@ -1,11 +1,13 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import os
 import logging
 from flask_cors import CORS
+from flask_pymongo import PyMongo
+from bson import ObjectId
+from models import User
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -14,56 +16,23 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, template_folder='../templates')
 CORS(app)
 
+# MongoDB Configuration
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
+app.config['MONGO_URI'] = os.environ.get('MONGODB_URI', 'your-mongodb-uri-here')
+mongo = PyMongo(app)
 
-# Use in-memory SQLite for Vercel
-if 'VERCEL' in os.environ:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///rating_game.db'
-
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_pre_ping': True,
-    'pool_recycle': 300,
-}
-
-db = SQLAlchemy(app)
+# Login manager setup
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
 PLAYMAKER_PASSWORD = 'qwertypoiu'
 
-# Database Models
-class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(120), nullable=False)
-    is_playmaker = db.Column(db.Boolean, default=False)
-    ratings = db.relationship('Rating', backref='user', lazy=True)
-    points = db.Column(db.Integer, default=0)
-
-class Sample(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text)
-    playmaker_rating = db.Column(db.Float, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    ratings = db.relationship('Rating', backref='sample', lazy=True)
-
-class Rating(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'), nullable=False)
-    rating_value = db.Column(db.Float, nullable=False)
-    points_earned = db.Column(db.Integer, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    user_data = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+    return User(user_data) if user_data else None
 
-# Copy ALL your routes from new_project.py here
+# Routes
 @app.route('/')
 def index():
     logger.debug('Accessing index page')
@@ -73,21 +42,6 @@ def index():
         logger.error(f'Error in index route: {str(e)}')
         return f"Error in application: {str(e)}", 500
 
-# Copy ALL other routes from new_project.py here
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        user = User.query.filter_by(username=username).first()
-        
-        if user and check_password_hash(user.password_hash, password):
-            login_user(user)
-            return redirect(url_for('dashboard'))
-        flash('Invalid username or password')
-    return render_template('login.html')
-
-# Add ALL routes after the login route
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -96,40 +50,54 @@ def register():
         is_playmaker = request.form.get('is_playmaker') == 'on'
         playmaker_password = request.form.get('playmaker_password')
         
-        if User.query.filter_by(username=username).first():
+        if mongo.db.users.find_one({'username': username}):
             flash('Username already exists')
             return redirect(url_for('register'))
         
-        # Check playmaker password if trying to register as playmaker
         if is_playmaker and playmaker_password != PLAYMAKER_PASSWORD:
             flash('Invalid playmaker password')
             return redirect(url_for('register'))
         
-        user = User(
-            username=username,
-            password_hash=generate_password_hash(password),
-            is_playmaker=is_playmaker
-        )
-        db.session.add(user)
-        db.session.commit()
+        user_data = {
+            'username': username,
+            'password_hash': generate_password_hash(password),
+            'is_playmaker': is_playmaker,
+            'points': 0,
+            'created_at': datetime.utcnow()
+        }
         
+        mongo.db.users.insert_one(user_data)
         flash('Registration successful')
         return redirect(url_for('login'))
     return render_template('register.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user_data = mongo.db.users.find_one({'username': username})
+        
+        if user_data and check_password_hash(user_data['password_hash'], password):
+            user = User(user_data)
+            login_user(user)
+            return redirect(url_for('dashboard'))
+        flash('Invalid username or password')
+    return render_template('login.html')
 
 @app.route('/dashboard')
 @login_required
 def dashboard():
     if current_user.is_playmaker:
-        samples = Sample.query.all()
-        ratings = Rating.query.all()
-        users = User.query.filter_by(is_playmaker=False).all()
+        samples = mongo.db.samples.find()
+        ratings = mongo.db.ratings.find()
+        users = mongo.db.users.find({'is_playmaker': False})
         return render_template('playmaker_dashboard.html', samples=samples, ratings=ratings, users=users)
     else:
-        samples = Sample.query.all()
-        user_ratings = Rating.query.filter_by(user_id=current_user.id).all()
-        rated_sample_ids = [r.sample_id for r in user_ratings]
-        unrated_samples = [s for s in samples if s.id not in rated_sample_ids]
+        samples = mongo.db.samples.find()
+        user_ratings = mongo.db.ratings.find({'user_id': current_user.id})
+        rated_sample_ids = [r['sample_id'] for r in user_ratings]
+        unrated_samples = [s for s in samples if s['_id'] not in rated_sample_ids]
         return render_template('player_dashboard.html', samples=unrated_samples, ratings=user_ratings)
 
 @app.route('/add_sample', methods=['GET', 'POST'])
@@ -143,14 +111,14 @@ def add_sample():
         description = request.form.get('description')
         playmaker_rating = float(request.form.get('rating'))
         
-        sample = Sample(
-            name=name,
-            description=description,
-            playmaker_rating=playmaker_rating
-        )
-        db.session.add(sample)
-        db.session.commit()
+        sample_data = {
+            'name': name,
+            'description': description,
+            'playmaker_rating': playmaker_rating,
+            'created_at': datetime.utcnow()
+        }
         
+        mongo.db.samples.insert_one(sample_data)
         flash('Sample added successfully')
         return redirect(url_for('dashboard'))
     return render_template('add_sample.html')
@@ -161,23 +129,28 @@ def rate_sample(sample_id):
     if current_user.is_playmaker:
         return redirect(url_for('dashboard'))
     
-    sample = Sample.query.get_or_404(sample_id)
+    sample = mongo.db.samples.find_one({'_id': ObjectId(sample_id)})
+    if not sample:
+        flash('Sample not found')
+        return redirect(url_for('dashboard'))
+    
     rating_value = float(request.form.get('rating'))
     
     # Calculate points (maximum 10 points for exact match)
-    difference = abs(sample.playmaker_rating - rating_value)
+    difference = abs(sample['playmaker_rating'] - rating_value)
     points = max(0, 10 - int(difference * 2))
     
-    rating = Rating(
-        user_id=current_user.id,
-        sample_id=sample_id,
-        rating_value=rating_value,
-        points_earned=points
-    )
+    rating_data = {
+        'user_id': current_user.id,
+        'sample_id': sample_id,
+        'rating_value': rating_value,
+        'points_earned': points,
+        'created_at': datetime.utcnow()
+    }
     
+    mongo.db.ratings.insert_one(rating_data)
     current_user.points += points
-    db.session.add(rating)
-    db.session.commit()
+    mongo.db.users.update_one({'_id': ObjectId(current_user.id)}, {'$set': {'points': current_user.points}})
     
     flash(f'Rating submitted! You earned {points} points!')
     return redirect(url_for('dashboard'))
@@ -195,7 +168,7 @@ def confirm_delete_user(username):
         flash('Only playmakers can delete users')
         return redirect(url_for('dashboard'))
         
-    user = User.query.filter_by(username=username).first()
+    user = mongo.db.users.find_one({'username': username})
     if not user:
         flash('User not found')
         return redirect(url_for('dashboard'))
@@ -209,11 +182,10 @@ def delete_user(username):
         flash('Only playmakers can delete users')
         return redirect(url_for('dashboard'))
         
-    user = User.query.filter_by(username=username).first()
+    user = mongo.db.users.find_one({'username': username})
     if user:
-        Rating.query.filter_by(user_id=user.id).delete()
-        db.session.delete(user)
-        db.session.commit()
+        mongo.db.ratings.delete_many({'user_id': user['_id']})
+        mongo.db.users.delete_one({'username': username})
         flash(f'User {username} has been deleted')
     else:
         flash(f'User {username} not found')
@@ -222,15 +194,12 @@ def delete_user(username):
 @app.route('/leaderboard')
 def leaderboard():
     # Get top 10 players by points
-    top_players = User.query.filter_by(is_playmaker=False).order_by(User.points.desc()).limit(10).all()
+    top_players = mongo.db.users.find({'is_playmaker': False}).sort('points', -1).limit(10)
     
     # Get current user's rank if logged in
     current_user_rank = None
     if current_user.is_authenticated and not current_user.is_playmaker:
-        higher_points = User.query.filter(
-            User.points > current_user.points,
-            User.is_playmaker == False
-        ).count()
+        higher_points = mongo.db.users.count_documents({'points': {'$gt': current_user.points}, 'is_playmaker': False})
         current_user_rank = higher_points + 1
     
     return render_template('leaderboard.html', 
@@ -246,50 +215,7 @@ def test_api():
         'timestamp': datetime.utcnow().isoformat()
     })
 
-# Initialize database for each request in Vercel environment
-@app.before_request
-def before_request():
-    if 'VERCEL' in os.environ:
-        try:
-            initialize_database()
-        except Exception as e:
-            logger.error(f"Error initializing database: {str(e)}")
-
-def initialize_database():
-    try:
-        with app.app_context():
-            db.create_all()
-            
-            # Only add demo data if no users exist
-            if not User.query.first():
-                try:
-                    # Create a demo playmaker
-                    playmaker = User(
-                        username="demo_playmaker",
-                        password_hash=generate_password_hash("demo123"),
-                        is_playmaker=True
-                    )
-                    db.session.add(playmaker)
-                    
-                    # Create some demo samples
-                    sample1 = Sample(
-                        name="Demo Sample 1",
-                        description="This is a demo sample",
-                        playmaker_rating=8.5
-                    )
-                    db.session.add(sample1)
-                    
-                    db.session.commit()
-                    logger.info("Demo data initialized successfully")
-                except Exception as e:
-                    db.session.rollback()
-                    logger.error(f"Error initializing demo data: {str(e)}")
-    except Exception as e:
-        logger.error(f"Database initialization error: {str(e)}")
-
 if __name__ == '__main__':
-    with app.app_context():
-        initialize_database()
     app.run(debug=True)
 
 # The WSGI application
