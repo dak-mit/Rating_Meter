@@ -31,36 +31,6 @@
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .card {
-            background: var(--card-dark);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(10px);
-            transition: all 0.3s ease;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-            border-color: rgba(99, 102, 241, 0.3);
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            border: none;
-            padding: 12px 24px;
-            border-radius: 12px;
-            font-weight: 500;
-            letter-spacing: 0.3px;
-            transition: all 0.3s ease;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(99, 102, 241, 0.3);
-        }
-
         .nav-link {
             color: var(--text-secondary) !important;
             font-weight: 500;
@@ -74,51 +44,6 @@
             color: var(--text-primary) !important;
             background: rgba(255, 255, 255, 0.1);
         }
-
-        .alert {
-            background: rgba(30, 41, 59, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: var(--text-primary);
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-        }
-
-        .table {
-            color: var(--text-primary);
-            background: var(--card-dark);
-            border-radius: 16px;
-            overflow: hidden;
-        }
-
-        .table th {
-            background: rgba(15, 23, 42, 0.6);
-            color: var(--accent-color);
-            font-weight: 500;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .table td {
-            border-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .badge {
-            background: var(--primary-color);
-            color: #fff;
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-weight: 500;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
     </style>
 </head>
 <body>
@@ -127,6 +52,41 @@
             <a class="navbar-brand" href="{{ url_for('index') }}">
                 <i class="fas fa-star-half-alt me-2"></i>Rating Game
             </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    {% if current_user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('dashboard') }}">
+                                <i class="fas fa-gauge-high me-1"></i>Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('leaderboard') }}">
+                                <i class="fas fa-trophy me-1"></i>Leaderboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('logout') }}">
+                                <i class="fas fa-sign-out-alt me-1"></i>Logout
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('login') }}">
+                                <i class="fas fa-sign-in-alt me-1"></i>Login
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('register') }}">
+                                <i class="fas fa-user-plus me-1"></i>Register
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
         </div>
     </nav>
 
